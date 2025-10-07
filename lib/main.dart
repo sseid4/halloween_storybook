@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:math';
+import 'dart:async';
 
 void main() {
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: DefaultTabController(length: 4, child: _TabsNonScrollableDemo()),
+      home: DefaultTabController(length: 5, child: _TabsNonScrollableDemo()),
     );
   }
 }
@@ -36,7 +41,7 @@ class __TabsNonScrollableDemoState extends State<_TabsNonScrollableDemo>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(initialIndex: 0, length: 4, vsync: this);
+    _tabController = TabController(initialIndex: 0, length: 5, vsync: this);
     _tabController.addListener(() {
       setState(() {
         tabIndex.value = _tabController.index;
@@ -53,7 +58,13 @@ class __TabsNonScrollableDemoState extends State<_TabsNonScrollableDemo>
 
   @override
   Widget build(BuildContext context) {
-    final tabs = ['🎃 Pumpkins', '👻 Ghosts', '🧙‍♀️ Witches', '👹 Monsters'];
+    final tabs = [
+      '🎃 Pumpkins',
+      '👻 Ghosts',
+      '🧙‍♀️ Witches',
+      '👹 Monsters',
+      '🎮 Spooky Game',
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -267,7 +278,7 @@ class __TabsNonScrollableDemoState extends State<_TabsNonScrollableDemo>
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      SizedBox(height: 20), 
+                      SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -385,6 +396,8 @@ class __TabsNonScrollableDemoState extends State<_TabsNonScrollableDemo>
               ],
             ),
           ),
+          // Tab 5: Interactive Halloween Game
+          HalloweenGameTab(),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
@@ -404,4 +417,423 @@ class __TabsNonScrollableDemoState extends State<_TabsNonScrollableDemo>
       ),
     );
   }
+}
+
+// Halloween Game Tab with Interactive Elements
+class HalloweenGameTab extends StatefulWidget {
+  @override
+  _HalloweenGameTabState createState() => _HalloweenGameTabState();
+}
+
+class _HalloweenGameTabState extends State<HalloweenGameTab>
+    with TickerProviderStateMixin {
+  late List<AnimationController> _animationControllers;
+  late List<Animation<Offset>> _animations;
+  late Timer _gameTimer;
+
+  bool _gameStarted = false;
+  bool _gameWon = false;
+  int _score = 0;
+
+  final List<GameItem> _gameItems = [];
+  final Random _random = Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeGame();
+  }
+
+  void _initializeGame() {
+    _gameItems.clear();
+    _animationControllers = [];
+    _animations = [];
+
+    // Create spooky game items
+    final items = [
+      GameItem('👻', 'Ghost', isWinningItem: false, isTrap: true),
+      GameItem('🎃', 'Pumpkin', isWinningItem: false, isTrap: false),
+      GameItem('🧙‍♀️', 'Witch', isWinningItem: false, isTrap: true),
+      GameItem('🦇', 'Bat', isWinningItem: false, isTrap: false),
+      GameItem('🕷️', 'Spider', isWinningItem: false, isTrap: true),
+      GameItem('💀', 'Skull', isWinningItem: false, isTrap: true),
+      GameItem('🕸️', 'Web', isWinningItem: false, isTrap: false),
+      GameItem(
+        '🌙',
+        'Moon',
+        isWinningItem: true,
+        isTrap: false,
+      ), // Winning item
+    ];
+
+    _gameItems.addAll(items);
+
+    // Create animation controllers for each item
+    for (int i = 0; i < _gameItems.length; i++) {
+      final controller = AnimationController(
+        duration: Duration(seconds: 3 + _random.nextInt(4)),
+        vsync: this,
+      );
+
+      final animation = Tween<Offset>(
+        begin: Offset(
+          _random.nextDouble() * 2 - 1,
+          _random.nextDouble() * 2 - 1,
+        ),
+        end: Offset(_random.nextDouble() * 2 - 1, _random.nextDouble() * 2 - 1),
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
+
+      _animationControllers.add(controller);
+      _animations.add(animation);
+
+      controller.repeat(reverse: true);
+    }
+
+    // Start background music timer
+    _startBackgroundEffects();
+  }
+
+  void _startBackgroundEffects() {
+    _gameTimer = Timer.periodic(Duration(seconds: 8), (timer) {
+      if (_gameStarted && !_gameWon) {
+        _playBackgroundSound();
+      }
+    });
+  }
+
+  void _playBackgroundSound() {
+    // Play spooky background sounds using SystemSound
+    SystemSound.play(SystemSoundType.click);
+  }
+
+  void _playJumpScareSound() {
+    // Play jump scare sound
+    SystemSound.play(SystemSoundType.alert);
+    HapticFeedback.heavyImpact();
+  }
+
+  void _playSuccessSound() {
+    // Play success sound
+    SystemSound.play(SystemSoundType.click);
+    HapticFeedback.lightImpact();
+  }
+
+  void _onItemTapped(int index) {
+    if (_gameWon) return;
+
+    final item = _gameItems[index];
+
+    if (item.isWinningItem) {
+      // Player found the correct item!
+      _playSuccessSound();
+      setState(() {
+        _gameWon = true;
+        _score += 100;
+      });
+      _showWinDialog();
+    } else if (item.isTrap) {
+      // Player hit a trap!
+      _playJumpScareSound();
+      _showTrapDialog(item.emoji);
+      setState(() {
+        _score = (_score - 10).clamp(0, 1000);
+      });
+    } else {
+      // Regular item
+      SystemSound.play(SystemSoundType.click);
+      setState(() {
+        _score += 5;
+      });
+    }
+  }
+
+  void _showWinDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.orange[50],
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text('🎉 You Found It! 🎉')],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '🌙 Congratulations! 🌙',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Text(
+              'You found the magical moon among all the spooky creatures!',
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Final Score: $_score points',
+              style: TextStyle(fontSize: 18, color: Colors.orange[800]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: _resetGame, child: Text('Play Again 🎮')),
+        ],
+      ),
+    );
+  }
+
+  void _showTrapDialog(String emoji) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.red[50],
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text('💀 TRAP! 💀')],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              emoji,
+              style: TextStyle(fontSize: 60),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Text(
+              'Boo! You hit a trap!',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              'Lost 10 points! Keep looking for the magical moon! 🌙',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Continue 💪'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetGame() {
+    Navigator.of(context).pop(); // Close dialog
+
+    for (var controller in _animationControllers) {
+      controller.dispose();
+    }
+    _gameTimer.cancel();
+
+    setState(() {
+      _gameWon = false;
+      _score = 0;
+    });
+
+    _initializeGame();
+  }
+
+  void _startGame() {
+    setState(() {
+      _gameStarted = true;
+    });
+
+    // Shuffle items for new game
+    _gameItems.shuffle();
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _animationControllers) {
+      controller.dispose();
+    }
+    _gameTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.black, Colors.grey[900]!],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Game Header
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    '🎮 Spooky Halloween Hunt 🎮',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 10),
+                  if (!_gameStarted)
+                    Column(
+                      children: [
+                        Text(
+                          'Find the magical moon 🌙 among the spooky creatures!',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          'Watch out for traps! 💀',
+                          style: TextStyle(
+                            color: Colors.red[300],
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _startGame,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.black,
+                          ),
+                          child: Text('Start Hunt! 🎯'),
+                        ),
+                      ],
+                    )
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Text(
+                          'Score: $_score',
+                          style: TextStyle(color: Colors.orange, fontSize: 18),
+                        ),
+                        if (_gameWon)
+                          Text(
+                            '🎉 Winner! 🎉',
+                            style: TextStyle(color: Colors.green, fontSize: 18),
+                          ),
+                        ElevatedButton(
+                          onPressed: _resetGame,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text('Reset 🔄'),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+
+            // Game Area
+            if (_gameStarted)
+              Expanded(
+                child: Stack(
+                  children: List.generate(_gameItems.length, (index) {
+                    return AnimatedBuilder(
+                      animation: _animations[index],
+                      builder: (context, child) {
+                        return Positioned(
+                          left:
+                              (MediaQuery.of(context).size.width / 2) +
+                              _animations[index].value.dx * 150,
+                          top:
+                              (MediaQuery.of(context).size.height / 2) +
+                              _animations[index].value.dy * 200,
+                          child: GestureDetector(
+                            onTap: () => _onItemTapped(index),
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: _gameItems[index].isTrap
+                                    ? Colors.red.withValues(alpha: 0.1)
+                                    : _gameItems[index].isWinningItem
+                                    ? Colors.yellow.withValues(alpha: 0.3)
+                                    : Colors.blue.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: _gameItems[index].isWinningItem
+                                      ? Colors.yellow
+                                      : Colors.white.withValues(alpha: 0.3),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _gameItems[index].emoji,
+                                  style: TextStyle(fontSize: 32),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  }),
+                ),
+              )
+            else
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('🌙', style: TextStyle(fontSize: 100)),
+                      SizedBox(height: 20),
+                      Text(
+                        'Ready for a spooky adventure?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Game Item Model
+class GameItem {
+  final String emoji;
+  final String name;
+  final bool isWinningItem;
+  final bool isTrap;
+
+  GameItem(
+    this.emoji,
+    this.name, {
+    required this.isWinningItem,
+    required this.isTrap,
+  });
 }
